@@ -59,6 +59,7 @@ install: build
 	rm -f $(CURDIR)/debian/yasm/usr/lib/yasm/*.a
 	rm -f $(CURDIR)/debian/yasm/usr/lib/yasm/*.la
 	rmdir $(CURDIR)/debian/yasm/usr/lib || true
+	rm -f $(CURDIR)/debian/yasm/usr/bin/vsyasm
 	cp debian/overrides $(CURDIR)/debian/yasm/usr/share/lintian/overrides/yasm
 
 binary-indep: build install

@@ -1,3 +1,11 @@
+yasm (1.1.0-1) unstable; urgency=low
+
+  * New upstream release (Closes: #582282).
+  * 010_config_sub_guess.diff: update config.sub and config.guess to much
+    more recent versions.
+
+ -- Sam Hocevar <sho@debian.org>  Fri, 10 Jun 2011 01:05:23 +0200
+
 yasm (0.8.0-1) unstable; urgency=low
 
   * New upstream release (Closes: #531047).

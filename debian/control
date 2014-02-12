@@ -3,7 +3,7 @@ Section: devel
 Priority: optional
 Maintainer: Sam Hocevar <sho@debian.org>
 Build-Depends: debhelper (>= 5.0), quilt, bison, gettext, xmlto, python
-Standards-Version: 3.8.2
+Standards-Version: 3.9.2
 Vcs-Svn: svn://svn.debian.org/sam-hocevar/pkg-misc/unstable/yasm
 Vcs-Browser: http://svn.debian.org/wsvn/sam-hocevar/pkg-misc/unstable/yasm/
 Homepage: http://www.tortall.net/projects/yasm/
