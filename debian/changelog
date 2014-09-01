@@ -1,3 +1,19 @@
+yasm (1.2.0-2) unstable; urgency=medium
+
+  * debian/rules: update config.{sub,guess} at build time (Closes: #725948).
+  * debian/patches/010_config_sub_guess.diff: dropped; this file is no
+    longer required.
+  * debian/docs: do not ship extra license files.
+  * debian/control: update standards version; no changes required.
+
+ -- Sam Hocevar <sho@debian.org>  Sun, 18 May 2014 23:06:53 +0200
+
+yasm (1.2.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Sam Hocevar <sho@debian.org>  Tue, 15 Jan 2013 21:05:07 +0100
+
 yasm (1.1.0-1) unstable; urgency=low
 
   * New upstream release (Closes: #582282).

@@ -25,7 +25,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <util.h>
-/*@unused@*/ RCSID("$Id: vsyasm.c 2309 2010-03-19 23:00:36Z peter $");
 
 #include <ctype.h>
 #include <libyasm/compat-queue.h>
@@ -216,7 +215,7 @@ static opt_option options[] =
 
 /* version message */
 /*@observer@*/ static const char *version_msg[] = {
-    PACKAGE_NAME " " PACKAGE_INTVER "." PACKAGE_BUILD,
+    PACKAGE_STRING,
     "Compiled on " __DATE__ ".",
     "Copyright (c) 2001-2010 Peter Johnson and other Yasm developers.",
     "Run yasm --license for licensing overview and summary."

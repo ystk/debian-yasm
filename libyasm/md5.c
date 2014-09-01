@@ -29,7 +29,6 @@
    this file is only about 3k of object code.  */
 
 #include <util.h>
-/*@unused@*/ RCSID("$Id: md5.c 1825 2007-04-22 03:32:46Z peter $");
 
 #include "md5.h"
 
@@ -163,7 +162,7 @@ yasm_md5_final(unsigned char digest[16], yasm_md5_context *ctx)
         putu32(ctx->buf[1], digest + 4);
         putu32(ctx->buf[2], digest + 8);
         putu32(ctx->buf[3], digest + 12);
-        memset(ctx, 0, sizeof(ctx));    /* In case it's sensitive */
+        memset(ctx, 0, sizeof(*ctx));    /* In case it's sensitive */
 }
 
 #ifndef ASM_MD5

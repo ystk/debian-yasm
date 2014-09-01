@@ -15,7 +15,9 @@ DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
 
-CFLAGS = -Wall -g
+CFLAGS = $(shell dpkg-buildflags --get CFLAGS)
+CPPFLAGS = $(shell dpkg-buildflags --get CPPFLAGS)
+LDFLAGS = $(shell dpkg-buildflags --get LDFLAGS)
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -O0
@@ -25,16 +27,19 @@ endif
 
 config.status: configure
 	dh_testdir
+	dh_autotools-dev_updateconfig
 	QUILT_PATCHES=debian/patches quilt push -a || test $$? = 2
 	touch aclocal.m4
 	touch configure
 	touch config.h.in
 	touch `find -name Makefile.in`
-	LDFLAGS="$(LDFLAGS) -Wl,-z,defs" CFLAGS="$(CFLAGS)" ./configure --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info
+	LDFLAGS="$(LDFLAGS) -Wl,-z,defs" CPPFLAGS="$(CPPFLAGS)" CFLAGS="$(CFLAGS)" ./configure --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info
 
-build: build-stamp
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
 
-build-stamp:  config.status
+build-stamp: config.status
 	dh_testdir
 	$(MAKE)
 	touch build-stamp
@@ -45,6 +50,7 @@ clean:
 	rm -f build-stamp
 	[ ! -f Makefile ] || $(MAKE) distclean
 	QUILT_PATCHES=debian/patches quilt pop -a -R || test $$? = 2
+	dh_autotools-dev_restoreconfig
 	dh_clean
 
 install: build
