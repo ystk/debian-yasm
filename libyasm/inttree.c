@@ -1,5 +1,4 @@
 #include "util.h"
-/*@unused@*/ RCSID("$Id: inttree.c 1893 2007-07-14 03:11:32Z peter $");
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -492,7 +491,8 @@ void
 IT_destroy(IntervalTree *it)
 {
     IntervalTreeNode *x = it->root->left;
-    SLIST_HEAD(, nodeent) stuffToFree = SLIST_HEAD_INITIALIZER(stuffToFree);
+    SLIST_HEAD(node_head, nodeent)
+        stuffToFree = SLIST_HEAD_INITIALIZER(stuffToFree);
     struct nodeent {
         SLIST_ENTRY(nodeent) link;
         struct IntervalTreeNode *node;

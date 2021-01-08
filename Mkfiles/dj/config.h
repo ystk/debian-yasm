@@ -1,5 +1,4 @@
-/* $Id: config.h 2195 2009-04-10 05:34:14Z peter $ */
-
+#include "YASM-VERSION.h"
 #define yasm__splitpath(path, tail)     yasm__splitpath_win(path, tail)
 #define yasm__abspath(path)             yasm__abspath_win(path)
 #define yasm__combpath(from, to)        yasm__combpath_win(from, to)
@@ -118,23 +117,17 @@
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT "bug-yasm@tortall.net"
 
-/* Define to build version of this package. */
-#define PACKAGE_BUILD "2194"
-
-/* Define to internal version of this package. */
-#define PACKAGE_INTVER "0.8.0"
-
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "yasm"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "yasm 0.8.0"
+/*#define PACKAGE_STRING "yasm HEAD"*/
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "yasm"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.8.0"
+/*#define PACKAGE_VERSION "HEAD"*/
 
 /* Define if the C compiler supports function prototypes. */
 #define PROTOTYPES 1
@@ -158,7 +151,7 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "0.8.0"
+#define VERSION "HEAD"
 
 /* Define if using the dmalloc debugging malloc package */
 /* #undef WITH_DMALLOC */

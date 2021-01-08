@@ -1,5 +1,3 @@
-# $Id: Makefile.inc 2036 2008-02-09 04:06:47Z peter $
-
 TESTS += modules/objfmts/elf/tests/elf_test.sh
 
 EXTRA_DIST += modules/objfmts/elf/tests/elf_test.sh
@@ -49,9 +47,13 @@ EXTRA_DIST += modules/objfmts/elf/tests/nasm-forceident.asm
 EXTRA_DIST += modules/objfmts/elf/tests/nasm-forceident.hex
 
 EXTRA_DIST += modules/objfmts/elf/tests/amd64/Makefile.inc
+EXTRA_DIST += modules/objfmts/elf/tests/x32/Makefile.inc
 EXTRA_DIST += modules/objfmts/elf/tests/gas32/Makefile.inc
 EXTRA_DIST += modules/objfmts/elf/tests/gas64/Makefile.inc
+EXTRA_DIST += modules/objfmts/elf/tests/gasx32/Makefile.inc
 
 include modules/objfmts/elf/tests/amd64/Makefile.inc
+include modules/objfmts/elf/tests/x32/Makefile.inc
 include modules/objfmts/elf/tests/gas32/Makefile.inc
 include modules/objfmts/elf/tests/gas64/Makefile.inc
+include modules/objfmts/elf/tests/gasx32/Makefile.inc

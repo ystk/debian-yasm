@@ -29,7 +29,6 @@
  */
 #include <util.h>
 #include <ctype.h>
-/*@unused@*/ RCSID("$Id: tasm-options.c 1197 2005-01-24 06:44:25Z peter $");
 
 #include "tasm-options.h"
 
@@ -103,14 +102,13 @@ parse_cmdline(int argc, char **argv, opt_option *options, size_t nopts,
 void
 help_msg(const char *msg, const char *tail, opt_option *options, size_t nopts)
 {
-    char optbuf[100], optopt[100];
+    char optbuf[100];
     size_t i;
 
     printf("%s", gettext(msg));
 
     for (i = 0; i < nopts; i++) {
         optbuf[0] = 0;
-        optopt[0] = 0;
 
         if (options[i].takes_param) {
             if (options[i].opt)

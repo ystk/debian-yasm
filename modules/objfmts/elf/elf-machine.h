@@ -1,4 +1,4 @@
-/* $Id:$
+/*
  * ELF object machine specific format helpers
  *
  *  Copyright (C) 2004-2007  Michael Urman
@@ -44,8 +44,7 @@
 
 #define YASM_WRITE_64Z_L(p, i)          YASM_WRITE_64C_L(p, 0, i)
 
-typedef int(*func_accepts_reloc)(size_t val, yasm_symrec *wrt,
-                                 yasm_symrec **ssyms);
+typedef int(*func_accepts_reloc)(size_t val, yasm_symrec *wrt);
 typedef void(*func_write_symtab_entry)(unsigned char *bufp,
                                        elf_symtab_entry *entry,
                                        yasm_intnum *value_intn,
@@ -57,9 +56,9 @@ typedef void(*func_write_secthead_rel)(unsigned char *bufp,
                                        elf_section_index sindex);
 
 typedef void(*func_handle_reloc_addend)(yasm_intnum *intn,
-                                        elf_reloc_entry *reloc);
-typedef unsigned int(*func_map_reloc_info_to_type)(elf_reloc_entry *reloc,
-                                                   yasm_symrec **ssyms);
+                                        elf_reloc_entry *reloc,
+                                        unsigned long offset);
+typedef unsigned int(*func_map_reloc_info_to_type)(elf_reloc_entry *reloc);
 typedef void(*func_write_reloc)(unsigned char *bufp,
                                 elf_reloc_entry *reloc,
                                 unsigned int r_type,
@@ -100,7 +99,7 @@ struct elf_machine_handler {
     func_write_reloc write_reloc;
     func_write_proghead write_proghead;
 
-    const elf_machine_ssym *ssyms;      /* array of "special" syms */
+    elf_machine_ssym *ssyms;            /* array of "special" syms */
     const size_t num_ssyms;             /* size of array */
 
     const int bits;                     /* usually 32 or 64 */

@@ -25,7 +25,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <util.h>
-/*@unused@*/ RCSID("$Id: x86arch.c 2181 2009-03-20 07:36:49Z peter $");
 
 #include <libyasm.h>
 
@@ -40,14 +39,20 @@ x86_create(const char *machine, const char *parser,
            /*@out@*/ yasm_arch_create_error *error)
 {
     yasm_arch_x86 *arch_x86;
-    unsigned int amd64_machine;
+    unsigned int amd64_machine, address_size;
 
     *error = YASM_ARCH_CREATE_OK;
 
-    if (yasm__strcasecmp(machine, "x86") == 0)
+    if (yasm__strcasecmp(machine, "x86") == 0) {
         amd64_machine = 0;
-    else if (yasm__strcasecmp(machine, "amd64") == 0)
+	address_size = 32;
+    } else if (yasm__strcasecmp(machine, "amd64") == 0) {
         amd64_machine = 1;
+	address_size = 64;
+    } else if (yasm__strcasecmp(machine, "x32") == 0) {
+        amd64_machine = 1;
+	address_size = 32;
+    }
     else {
         *error = YASM_ARCH_CREATE_BAD_MACHINE;
         return NULL;
@@ -66,8 +71,10 @@ x86_create(const char *machine, const char *parser,
 
     arch_x86->amd64_machine = amd64_machine;
     arch_x86->mode_bits = 0;
+    arch_x86->address_size = address_size;
     arch_x86->force_strict = 0;
     arch_x86->default_rel = 0;
+    arch_x86->gas_intel_mode = 0;
     arch_x86->nop = X86_NOP_BASIC;
 
     if (yasm__strcasecmp(parser, "nasm") == 0)
@@ -101,9 +108,12 @@ static const char *
 x86_get_machine(const yasm_arch *arch)
 {
     const yasm_arch_x86 *arch_x86 = (const yasm_arch_x86 *)arch;
-    if (arch_x86->amd64_machine)
-        return "amd64";
-    else
+    if (arch_x86->amd64_machine) {
+        if (arch_x86->address_size == 32)
+            return "x32";
+        else
+            return "amd64";
+    } else
         return "x86";
 }
 
@@ -113,10 +123,7 @@ x86_get_address_size(const yasm_arch *arch)
     const yasm_arch_x86 *arch_x86 = (const yasm_arch_x86 *)arch;
     if (arch_x86->mode_bits != 0)
         return arch_x86->mode_bits;
-    if (arch_x86->amd64_machine)
-        return 64;
-    else
-        return 32;
+    return arch_x86->address_size;
 }
 
 static int
@@ -133,6 +140,8 @@ x86_set_var(yasm_arch *arch, const char *var, unsigned long val)
                           N_("ignoring default rel in non-64-bit mode"));
         else
             arch_x86->default_rel = (unsigned int)val;
+    } else if (yasm__strcasecmp(var, "gas_intel_mode") == 0) {
+        arch_x86->gas_intel_mode = (unsigned int)val;
     } else
         return 1;
     return 0;
@@ -581,6 +590,7 @@ x86_segreg_print(yasm_arch *arch, uintptr_t segreg, FILE *f)
 static const yasm_arch_machine x86_machines[] = {
     { "IA-32 and derivatives", "x86" },
     { "AMD64", "amd64" },
+    { "X32", "x32" },
     { NULL, NULL }
 };
 

@@ -25,7 +25,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <util.h>
-/*@unused@*/ RCSID("$Id: rdf-objfmt.c 2166 2009-01-02 08:33:21Z peter $");
 
 #include <libyasm.h>
 
@@ -184,7 +183,6 @@ rdf_objfmt_output_value(yasm_value *value, unsigned char *buf,
                         yasm_bytecode *bc, int warn, /*@null@*/ void *d)
 {
     /*@null@*/ rdf_objfmt_output_info *info = (rdf_objfmt_output_info *)d;
-    yasm_objfmt_rdf *objfmt_rdf;
     /*@dependent@*/ /*@null@*/ yasm_intnum *intn;
     unsigned long intn_minus;
     unsigned long intn_plus;
@@ -192,7 +190,6 @@ rdf_objfmt_output_value(yasm_value *value, unsigned char *buf,
     unsigned int valsize = value->size;
 
     assert(info != NULL);
-    objfmt_rdf = info->objfmt_rdf;
 
     if (value->abs)
         value->abs = yasm_expr_simplify(value->abs, 1);
@@ -811,10 +808,11 @@ rdf_objfmt_destroy(yasm_objfmt *objfmt)
     yasm_xfree(objfmt);
 }
 
-static rdf_section_data *
-rdf_objfmt_init_new_section(yasm_object *object, yasm_section *sect,
-                            const char *sectname, unsigned long line)
+static void
+rdf_objfmt_init_new_section(yasm_section *sect, unsigned long line)
 {
+    yasm_object *object = yasm_section_get_object(sect);
+    const char *sectname = yasm_section_get_name(sect);
     yasm_objfmt_rdf *objfmt_rdf = (yasm_objfmt_rdf *)object->objfmt;
     rdf_section_data *data;
     yasm_symrec *sym;
@@ -830,7 +828,6 @@ rdf_objfmt_init_new_section(yasm_object *object, yasm_section *sect,
     sym = yasm_symtab_define_label(object->symtab, sectname,
                                    yasm_section_bcs_first(sect), 1, line);
     data->sym = sym;
-    return data;
 }
 
 static yasm_section *
@@ -842,7 +839,7 @@ rdf_objfmt_add_default_section(yasm_object *object)
 
     retval = yasm_object_get_general(object, ".text", 0, 1, 0, &isnew, 0);
     if (isnew) {
-        rsd = rdf_objfmt_init_new_section(object, retval, ".text", 0);
+        rsd = yasm_section_get_data(retval, &rdf_section_data_cb);
         rsd->type = RDF_SECT_CODE;
         rsd->reserved = 0;
         yasm_section_set_default(retval, 1);
@@ -950,10 +947,7 @@ rdf_objfmt_section_switch(yasm_object *object, yasm_valparamhead *valparams,
     retval = yasm_object_get_general(object, sectname, 0, 1,
                                      data.type == RDF_SECT_BSS, &isnew, line);
 
-    if (isnew)
-        rsd = rdf_objfmt_init_new_section(object, retval, sectname, line);
-    else
-        rsd = yasm_section_get_data(retval, &rdf_section_data_cb);
+    rsd = yasm_section_get_data(retval, &rdf_section_data_cb);
 
     if (isnew || yasm_section_is_default(retval)) {
         yasm_section_set_default(retval, 0);
@@ -1088,6 +1082,7 @@ yasm_objfmt_module yasm_rdf_LTX_objfmt = {
     rdf_objfmt_output,
     rdf_objfmt_destroy,
     rdf_objfmt_add_default_section,
+    rdf_objfmt_init_new_section,
     rdf_objfmt_section_switch,
     rdf_objfmt_get_special_sym
 };

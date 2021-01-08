@@ -26,7 +26,6 @@
  */
 
 #include <util.h>
-/*@unused@*/ RCSID("$Id: elf.c 2040 2008-02-21 08:57:23Z peter $");
 
 #include <libyasm.h>
 #define YASM_OBJFMT_ELF_INTERNAL
@@ -43,20 +42,28 @@ const yasm_assoc_data_callback elf_section_data = {
 
 static void elf_symrec_data_destroy(/*@only@*/ void *d);
 static void elf_symtab_entry_print(void *data, FILE *f, int indent_level);
+static void elf_ssym_symtab_entry_print(void *data, FILE *f, int indent_level);
 
 const yasm_assoc_data_callback elf_symrec_data = {
     elf_symrec_data_destroy,
     elf_symtab_entry_print
 };
 
+const yasm_assoc_data_callback elf_ssym_symrec_data = {
+    elf_symrec_data_destroy,
+    elf_ssym_symtab_entry_print
+};
+
 extern elf_machine_handler
     elf_machine_handler_x86_x86,
-    elf_machine_handler_x86_amd64;
+    elf_machine_handler_x86_amd64,
+    elf_machine_handler_x86_x32;
 
 static const elf_machine_handler *elf_machine_handlers[] =
 {
     &elf_machine_handler_x86_x86,
     &elf_machine_handler_x86_amd64,
+    &elf_machine_handler_x86_x32,
     NULL
 };
 static const elf_machine_handler elf_null_machine = {0, 0, 0, 0, 0, 0, 0, 0,
@@ -75,10 +82,15 @@ elf_set_arch(yasm_arch *arch, yasm_symtab *symtab, int bits_pref)
          elf_march != NULL;
          elf_march = elf_machine_handlers[++i])
     {
-        if (yasm__strcasecmp(yasm_arch_keyword(arch), elf_march->arch)==0)
-            if (yasm__strcasecmp(machine, elf_march->machine)==0)
+        if (yasm__strcasecmp(yasm_arch_keyword(arch), elf_march->arch)==0) {
+            if (yasm__strcasecmp(machine, elf_march->machine)==0) {
                 if (bits_pref == 0 || bits_pref == elf_march->bits)
                     break;
+            } else if (bits_pref == elf_march->bits
+                       && yasm__strcasecmp(machine, "amd64") == 0
+                       && yasm__strcasecmp(elf_march->machine, "x32") == 0)
+                break;
+        }
     }
 
     if (elf_march && elf_march->num_ssyms > 0)
@@ -92,6 +104,8 @@ elf_set_arch(yasm_arch *arch, yasm_symtab *symtab, int bits_pref)
             elf_ssyms[i] = yasm_symtab_define_label(symtab,
                                                     elf_march->ssyms[i].name,
                                                     NULL, 0, 0);
+            yasm_symrec_add_data(elf_ssyms[i], &elf_ssym_symrec_data,
+                                 (void*)&elf_march->ssyms[i]);
         }
     }
 
@@ -141,14 +155,15 @@ elf_reloc_entry_create(yasm_symrec *sym,
                        yasm_symrec *wrt,
                        yasm_intnum *addr,
                        int rel,
-                       size_t valsize)
+                       size_t valsize,
+                       int is_GOT_sym)
 {
     elf_reloc_entry *entry;
 
     if (!elf_march->accepts_reloc)
         yasm_internal_error(N_("Unsupported machine for ELF output"));
 
-    if (!elf_march->accepts_reloc(valsize, wrt, elf_ssyms))
+    if (!elf_march->accepts_reloc(valsize, wrt))
     {
         if (addr)
             yasm_intnum_destroy(addr);
@@ -165,6 +180,7 @@ elf_reloc_entry_create(yasm_symrec *sym,
     entry->valsize = valsize;
     entry->addend = NULL;
     entry->wrt = wrt;
+    entry->is_GOT_sym = is_GOT_sym;
 
     return entry;
 }
@@ -350,6 +366,12 @@ elf_symtab_entry_print(void *data, FILE *f, int indent_level)
     fprintf(f, "\n");
 }
 
+static void
+elf_ssym_symtab_entry_print(void *data, FILE *f, int indent_level)
+{
+    /* TODO */
+}
+
 elf_symtab_head *
 elf_symtab_create()
 {
@@ -447,13 +469,12 @@ elf_symtab_write_to_file(FILE *f, elf_symtab_head *symtab,
                          yasm_errwarns *errwarns)
 {
     unsigned char buf[SYMTAB_MAXSIZE], *bufp;
-    elf_symtab_entry *entry, *prev;
+    elf_symtab_entry *entry;
     unsigned long size = 0;
 
     if (!symtab)
         yasm_internal_error(N_("symtab is null"));
 
-    prev = NULL;
     STAILQ_FOREACH(entry, symtab, qlink) {
 
         yasm_intnum *size_intn=NULL, *value_intn=NULL;
@@ -516,8 +537,6 @@ elf_symtab_write_to_file(FILE *f, elf_symtab_head *symtab,
 
         yasm_intnum_destroy(size_intn);
         yasm_intnum_destroy(value_intn);
-
-        prev = entry;
     }
     return size;
 }
@@ -702,11 +721,13 @@ elf_secthead_name_reloc_section(const char *basesect)
 }
 
 void
-elf_handle_reloc_addend(yasm_intnum *intn, elf_reloc_entry *reloc)
+elf_handle_reloc_addend(yasm_intnum *intn,
+                        elf_reloc_entry *reloc,
+                        unsigned long offset)
 {
     if (!elf_march->handle_reloc_addend)
         yasm_internal_error(N_("Unsupported machine for ELF output"));
-    elf_march->handle_reloc_addend(intn, reloc);
+    elf_march->handle_reloc_addend(intn, reloc, offset);
 }
 
 unsigned long
@@ -765,7 +786,6 @@ elf_secthead_write_relocs_to_file(FILE *f, yasm_section *sect,
 
 
     while (reloc) {
-        yasm_sym_vis vis;
         unsigned int r_type=0, r_sym;
         elf_symtab_entry *esym;
 
@@ -775,10 +795,9 @@ elf_secthead_write_relocs_to_file(FILE *f, yasm_section *sect,
         else
             r_sym = STN_UNDEF;
 
-        vis = yasm_symrec_get_visibility(reloc->reloc.sym);
         if (!elf_march->map_reloc_info_to_type)
             yasm_internal_error(N_("Unsupported arch/machine for elf output"));
-        r_type = elf_march->map_reloc_info_to_type(reloc, elf_ssyms);
+        r_type = elf_march->map_reloc_info_to_type(reloc);
 
         bufp = buf;
         if (!elf_march->write_reloc || !elf_march->reloc_entry_size)

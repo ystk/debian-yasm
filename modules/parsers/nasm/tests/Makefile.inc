@@ -1,5 +1,3 @@
-# $Id: Makefile.inc 2191 2009-03-25 03:42:05Z peter $
-
 TESTS += modules/parsers/nasm/tests/nasm_test.sh
 
 EXTRA_DIST += modules/parsers/nasm/tests/nasm_test.sh
@@ -9,6 +7,9 @@ EXTRA_DIST += modules/parsers/nasm/tests/alignnop32.asm
 EXTRA_DIST += modules/parsers/nasm/tests/alignnop32.hex
 EXTRA_DIST += modules/parsers/nasm/tests/charconstmath.asm
 EXTRA_DIST += modules/parsers/nasm/tests/charconstmath.hex
+EXTRA_DIST += modules/parsers/nasm/tests/dirwarning.asm
+EXTRA_DIST += modules/parsers/nasm/tests/dirwarning.errwarn
+EXTRA_DIST += modules/parsers/nasm/tests/dirwarning.hex
 EXTRA_DIST += modules/parsers/nasm/tests/dy.asm
 EXTRA_DIST += modules/parsers/nasm/tests/dy.hex
 EXTRA_DIST += modules/parsers/nasm/tests/endcomma.asm
@@ -38,6 +39,8 @@ EXTRA_DIST += modules/parsers/nasm/tests/strucalign.asm
 EXTRA_DIST += modules/parsers/nasm/tests/strucalign.hex
 EXTRA_DIST += modules/parsers/nasm/tests/struczero.asm
 EXTRA_DIST += modules/parsers/nasm/tests/struczero.hex
+EXTRA_DIST += modules/parsers/nasm/tests/strucbase.asm
+EXTRA_DIST += modules/parsers/nasm/tests/strucbase.hex
 EXTRA_DIST += modules/parsers/nasm/tests/syntax-err.asm
 EXTRA_DIST += modules/parsers/nasm/tests/syntax-err.errwarn
 EXTRA_DIST += modules/parsers/nasm/tests/uscore.asm

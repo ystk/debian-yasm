@@ -25,7 +25,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <util.h>
-/*@unused@*/ RCSID("$Id: xdf-objfmt.c 2166 2009-01-02 08:33:21Z peter $");
 
 #include <libyasm.h>
 
@@ -150,14 +149,12 @@ xdf_objfmt_output_value(yasm_value *value, unsigned char *buf,
                         yasm_bytecode *bc, int warn, /*@null@*/ void *d)
 {
     /*@null@*/ xdf_objfmt_output_info *info = (xdf_objfmt_output_info *)d;
-    yasm_objfmt_xdf *objfmt_xdf;
     /*@dependent@*/ /*@null@*/ yasm_intnum *intn;
     unsigned long intn_minus;
     int retval;
     unsigned int valsize = value->size;
 
     assert(info != NULL);
-    objfmt_xdf = info->objfmt_xdf;
 
     if (value->abs)
         value->abs = yasm_expr_simplify(value->abs, 1);
@@ -376,13 +373,11 @@ static int
 xdf_objfmt_output_secthead(yasm_section *sect, /*@null@*/ void *d)
 {
     /*@null@*/ xdf_objfmt_output_info *info = (xdf_objfmt_output_info *)d;
-    yasm_objfmt_xdf *objfmt_xdf;
     /*@dependent@*/ /*@null@*/ xdf_section_data *xsd;
     /*@null@*/ xdf_symrec_data *xsymd;
     unsigned char *localbuf;
 
     assert(info != NULL);
-    objfmt_xdf = info->objfmt_xdf;
     xsd = yasm_section_get_data(sect, &xdf_section_data_cb);
     assert(xsd != NULL);
 
@@ -604,10 +599,11 @@ xdf_objfmt_destroy(yasm_objfmt *objfmt)
     yasm_xfree(objfmt);
 }
 
-static xdf_section_data *
-xdf_objfmt_init_new_section(yasm_object *object, yasm_section *sect,
-                            const char *sectname, unsigned long line)
+static void
+xdf_objfmt_init_new_section(yasm_section *sect, unsigned long line)
 {
+    yasm_object *object = yasm_section_get_object(sect);
+    const char *sectname = yasm_section_get_name(sect);
     yasm_objfmt_xdf *objfmt_xdf = (yasm_objfmt_xdf *)object->objfmt;
     xdf_section_data *data;
     yasm_symrec *sym;
@@ -626,21 +622,17 @@ xdf_objfmt_init_new_section(yasm_object *object, yasm_section *sect,
     sym = yasm_symtab_define_label(object->symtab, sectname,
                                    yasm_section_bcs_first(sect), 1, line);
     data->sym = sym;
-    return data;
 }
 
 static yasm_section *
 xdf_objfmt_add_default_section(yasm_object *object)
 {
     yasm_section *retval;
-    xdf_section_data *xsd;
     int isnew;
 
     retval = yasm_object_get_general(object, ".text", 0, 1, 0, &isnew, 0);
-    if (isnew) {
-        xsd = xdf_objfmt_init_new_section(object, retval, ".text", 0);
+    if (isnew)
         yasm_section_set_default(retval, 1);
-    }
     return retval;
 }
 
@@ -750,10 +742,7 @@ xdf_objfmt_section_switch(yasm_object *object, yasm_valparamhead *valparams,
     retval = yasm_object_get_general(object, sectname, align, 1, resonly,
                                      &isnew, line);
 
-    if (isnew)
-        xsd = xdf_objfmt_init_new_section(object, retval, sectname, line);
-    else
-        xsd = yasm_section_get_data(retval, &xdf_section_data_cb);
+    xsd = yasm_section_get_data(retval, &xdf_section_data_cb);
 
     if (isnew || yasm_section_is_default(retval)) {
         yasm_section_set_default(retval, 0);
@@ -847,6 +836,7 @@ yasm_objfmt_module yasm_xdf_LTX_objfmt = {
     xdf_objfmt_output,
     xdf_objfmt_destroy,
     xdf_objfmt_add_default_section,
+    xdf_objfmt_init_new_section,
     xdf_objfmt_section_switch,
     xdf_objfmt_get_special_sym
 };

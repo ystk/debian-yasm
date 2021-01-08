@@ -1,4 +1,4 @@
-/* $Id: x86arch.h 2181 2009-03-20 07:36:49Z peter $
+/*
  * x86 Architecture header file
  *
  *  Copyright (C) 2001-2007  Peter Johnson
@@ -64,13 +64,40 @@
 #define CPU_SSE41   30      /* Streaming SIMD extensions 4.1 required */
 #define CPU_SSE42   31      /* Streaming SIMD extensions 4.2 required */
 #define CPU_SSE4a   32      /* AMD Streaming SIMD extensions 4a required */
-#define CPU_SSE5    33      /* AMD Streaming SIMD extensions 5 required */
-#define CPU_XSAVE   34      /* Intel XSAVE instructions */
-#define CPU_AVX     35      /* Intel Advanced Vector Extensions */
-#define CPU_FMA     36      /* Intel Fused-Multiply-Add Extensions */
-#define CPU_AES     37      /* AES instruction */
-#define CPU_CLMUL   38      /* PCLMULQDQ instruction */
-#define CPU_MOVBE   39      /* MOVBE instruction */
+#define CPU_XSAVE   33      /* Intel XSAVE instructions */
+#define CPU_AVX     34      /* Intel Advanced Vector Extensions */
+#define CPU_FMA     35      /* Intel Fused-Multiply-Add Extensions */
+#define CPU_AES     36      /* AES instruction */
+#define CPU_CLMUL   37      /* PCLMULQDQ instruction */
+#define CPU_MOVBE   38      /* MOVBE instruction */
+#define CPU_XOP     39      /* AMD XOP extensions */
+#define CPU_FMA4    40      /* AMD Fused-Multiply-Add extensions */
+#define CPU_F16C    41      /* Intel float-16 instructions */
+#define CPU_FSGSBASE 42     /* Intel FSGSBASE instructions */
+#define CPU_RDRAND  43      /* Intel RDRAND instruction */
+#define CPU_XSAVEOPT 44     /* Intel XSAVEOPT instruction */
+#define CPU_EPTVPID 45      /* Intel INVEPT, INVVPID instructions */
+#define CPU_SMX     46      /* Intel SMX instruction (GETSEC) */
+#define CPU_AVX2    47      /* Intel AVX2 instructions */
+#define CPU_BMI1    48      /* Intel BMI1 instructions */
+#define CPU_BMI2    49      /* Intel BMI2 instructions */
+#define CPU_INVPCID 50      /* Intel INVPCID instruction */
+#define CPU_LZCNT   51      /* Intel LZCNT instruction */
+#define CPU_TBM     52      /* AMD TBM instruction */
+#define CPU_TSX     53      /* Intel TSX instructions */
+#define CPU_SHA     54      /* Intel SHA instructions */
+#define CPU_SMAP    55      /* Intel SMAP instructions */
+#define CPU_RDSEED  56      /* Intel RDSEED instruction */
+#define CPU_ADX     57      /* Intel ADCX and ADOX instructions */
+#define CPU_PRFCHW  58      /* Intel/AMD PREFETCHW instruction */
+
+enum x86_parser_type {
+    X86_PARSER_NASM = 0,
+    X86_PARSER_TASM = 1,
+    X86_PARSER_GAS = 2
+};
+
+#define PARSER(arch) (((arch)->parser == X86_PARSER_GAS && (arch)->gas_intel_mode) ? X86_PARSER_NASM : (arch)->parser)
 
 typedef struct yasm_arch_x86 {
     yasm_arch_base arch;        /* base structure */
@@ -81,14 +108,12 @@ typedef struct yasm_arch_x86 {
     wordptr *cpu_enables;
 
     unsigned int amd64_machine;
-    enum {
-        X86_PARSER_NASM = 0,
-        X86_PARSER_TASM = 1,
-        X86_PARSER_GAS = 2
-    } parser;
+    enum x86_parser_type parser;
     unsigned int mode_bits;
+    unsigned int address_size;
     unsigned int force_strict;
     unsigned int default_rel;
+    unsigned int gas_intel_mode;
 
     enum {
         X86_NOP_BASIC = 0,
@@ -122,7 +147,8 @@ typedef enum {
     X86_ADDRSIZE = 2<<8,
     X86_OPERSIZE = 3<<8,
     X86_SEGREG = 4<<8,
-    X86_REX = 5<<8
+    X86_REX = 5<<8,
+    X86_ACQREL = 6<<8     /*TSX hint prefixes*/
 } x86_parse_insn_prefix;
 
 typedef enum {
@@ -152,13 +178,16 @@ typedef enum {
  * indicates bit of REX to use if REX is needed.  Will not modify REX if not
  * in 64-bit mode or if it wasn't needed to express reg.
  */
-int yasm_x86__set_rex_from_reg(unsigned char *rex, unsigned char *drex,
-                               unsigned char *low3, uintptr_t reg,
-                               unsigned int bits, x86_rex_bit_pos rexbit);
+int yasm_x86__set_rex_from_reg(unsigned char *rex, unsigned char *low3,
+                               uintptr_t reg, unsigned int bits,
+                               x86_rex_bit_pos rexbit);
 
 /* Effective address type */
 typedef struct x86_effaddr {
     yasm_effaddr ea;            /* base structure */
+
+    /* VSIB uses the normal SIB byte, but this flag enables it. */
+    unsigned char vsib_mode;    /* 0 if not, 1 if XMM, 2 if YMM */
 
     /* How the spare (register) bits in Mod/RM are handled:
      * Even if valid_modrm=0, the spare bits are still valid (don't overwrite!)
@@ -172,19 +201,14 @@ typedef struct x86_effaddr {
     unsigned char valid_sib;    /* 1 if SIB byte currently valid, 0 if not */
     unsigned char need_sib;     /* 1 if SIB byte needed, 0 if not,
                                    0xff if unknown */
-
-    unsigned char drex;         /* DREX SSE5 extension byte */
-    unsigned char need_drex;    /* 1 if DREX byte needed, 0 if not */
 } x86_effaddr;
 
 void yasm_x86__ea_init(x86_effaddr *x86_ea, unsigned int spare,
-                       unsigned int drex, unsigned int need_drex,
                        yasm_bytecode *precbc);
 
 void yasm_x86__ea_set_disponly(x86_effaddr *x86_ea);
 x86_effaddr *yasm_x86__ea_create_reg(x86_effaddr *x86_ea, unsigned long reg,
-                                     unsigned char *rex, unsigned char *drex,
-                                     unsigned int bits);
+                                     unsigned char *rex, unsigned int bits);
 x86_effaddr *yasm_x86__ea_create_imm
     (x86_effaddr *x86_ea, /*@keep@*/ yasm_expr *imm, unsigned int im_len);
 yasm_effaddr *yasm_x86__ea_create_expr(yasm_arch *arch,
@@ -204,6 +228,8 @@ typedef struct x86_common {
     unsigned char addrsize;         /* 0 or =mode_bits => no override */
     unsigned char opersize;         /* 0 or =mode_bits => no override */
     unsigned char lockrep_pre;      /* 0 indicates no prefix */
+    unsigned char acqrel_pre;      /* 0 indicates no prefix. We need this because
+                                   xqcuire/xrelease might require F0 prefix */
 
     unsigned char mode_bits;
 } x86_common;

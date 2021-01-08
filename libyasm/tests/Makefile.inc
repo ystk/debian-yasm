@@ -1,5 +1,3 @@
-# $Id: Makefile.inc 2123 2008-09-30 03:56:37Z peter $
-
 TESTS += bitvect_test
 TESTS += floatnum_test
 TESTS += leb128_test
@@ -25,6 +23,8 @@ EXTRA_DIST += libyasm/tests/equ-expand.asm
 EXTRA_DIST += libyasm/tests/equ-expand.hex
 EXTRA_DIST += libyasm/tests/expr-fold-level.asm
 EXTRA_DIST += libyasm/tests/expr-fold-level.hex
+EXTRA_DIST += libyasm/tests/expr-simplify-identity.asm
+EXTRA_DIST += libyasm/tests/expr-simplify-identity.hex
 EXTRA_DIST += libyasm/tests/expr-wide-ident.asm
 EXTRA_DIST += libyasm/tests/expr-wide-ident.hex
 EXTRA_DIST += libyasm/tests/externdef.asm
@@ -66,6 +66,8 @@ EXTRA_DIST += libyasm/tests/strucsize.asm
 EXTRA_DIST += libyasm/tests/strucsize.hex
 EXTRA_DIST += libyasm/tests/times0.asm
 EXTRA_DIST += libyasm/tests/times0.hex
+EXTRA_DIST += libyasm/tests/timesfwd.asm
+EXTRA_DIST += libyasm/tests/timesfwd.hex
 EXTRA_DIST += libyasm/tests/timesover-err.asm
 EXTRA_DIST += libyasm/tests/timesover-err.errwarn
 EXTRA_DIST += libyasm/tests/timesunder.asm
@@ -83,6 +85,8 @@ EXTRA_DIST += libyasm/tests/value-samesym.hex
 EXTRA_DIST += libyasm/tests/value-mask.asm
 EXTRA_DIST += libyasm/tests/value-mask.errwarn
 EXTRA_DIST += libyasm/tests/value-mask.hex
+EXTRA_DIST += libyasm/tests/value-shr-symexpr.asm
+EXTRA_DIST += libyasm/tests/value-shr-symexpr.hex
 
 check_PROGRAMS += bitvect_test
 check_PROGRAMS += floatnum_test

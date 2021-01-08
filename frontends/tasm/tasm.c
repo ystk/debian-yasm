@@ -26,7 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <util.h>
-/*@unused@*/ RCSID("$Id: tasm.c 1523 2006-05-06 16:11:56Z peter $");
 
 #include <ctype.h>
 #include <libyasm/compat-queue.h>
@@ -39,13 +38,17 @@
 
 #include "tasm-options.h"
 
-#ifdef CMAKE_BUILD
+#if defined(CMAKE_BUILD) && defined(BUILD_SHARED_LIBS)
 #include "yasm-plugin.h"
 #endif
 
 #include "license.c"
 
 #define DEFAULT_OBJFMT_MODULE   "bin"
+
+#if defined(CMAKE_BUILD) && !defined(BUILD_SHARED_LIBS)
+void yasm_init_plugin(void);
+#endif
 
 /*@null@*/ /*@only@*/ static char *obj_filename = NULL, *in_filename = NULL;
 /*@null@*/ /*@only@*/ static char *list_filename = NULL, *xref_filename = NULL;
@@ -224,9 +227,9 @@ static opt_option options[] =
 
 /* version message */
 /*@observer@*/ static const char *version_msg[] = {
-    PACKAGE_NAME " " PACKAGE_INTVER "." PACKAGE_BUILD,
+    PACKAGE_STRING,
     "Compiled on " __DATE__ ".",
-    "Copyright (c) 2001-2008 Peter Johnson and other Yasm developers.",
+    "Copyright (c) 2001-2010 Peter Johnson and other Yasm developers.",
     "Run yasm --license for licensing overview and summary."
 };
 
@@ -267,7 +270,7 @@ do_assemble(void)
 
     /* Initialize line map */
     linemap = yasm_linemap_create();
-    yasm_linemap_set(linemap, in_filename, 1, 1);
+    yasm_linemap_set(linemap, in_filename, 0, 1, 1);
 
     /* determine the object filename if not specified */
     if (!obj_filename) {
@@ -458,10 +461,14 @@ main(int argc, char *argv[])
 
 #ifdef CMAKE_BUILD
     /* Load standard modules */
+#ifdef BUILD_SHARED_LIBS
     if (!load_plugin("yasmstd")) {
         print_error(_("%s: could not load standard modules"), _("FATAL"));
         return EXIT_FAILURE;
     }
+#else
+    yasm_init_plugin();
+#endif
 #endif
 
     /* Initialize parameter storage */
@@ -641,7 +648,7 @@ cleanup(yasm_object *object)
 
     if (errfile != stderr && errfile != stdout)
         fclose(errfile);
-#ifdef CMAKE_BUILD
+#if defined(CMAKE_BUILD) && defined(BUILD_SHARED_LIBS)
     unload_plugins();
 #endif
 }

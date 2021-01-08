@@ -1,6 +1,4 @@
-/* Modified for use with yasm by Peter Johnson.
- * $Id: perfect.c 1942 2007-09-11 02:11:19Z peter $
- */
+/* Modified for use with yasm by Peter Johnson. */
 /*
 ------------------------------------------------------------------------------
 perfect.c: code to generate code for a hash for perfect hashing.
@@ -673,8 +671,6 @@ static void hash_ab(
     sprintf(final->line[0], "  unsigned long rsl = (a ^ scramble[tab[b]]);\n");
   }
 
-  printf("success, found a perfect hash\n");
-
   free((void *)tabq);
   free((void *)tabh);
 }
@@ -754,6 +750,7 @@ static void initalen(
     case 0:
       *alen = 1;
       *blen = 1;
+      break;
     case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
       *alen = (form->perfect == NORMAL_HP) ? *smax : *smax/2;
       *blen = *smax/2;
@@ -903,8 +900,6 @@ void findhash(
       continue;                             /* two keys have same (a,b) pair */
     }
 
-    printf("found distinct (A,B) on attempt %ld\n", trysalt);
-
     /* Given distinct (A,B) for all keys, build a perfect hash */
     if (!perfect(*tabb, *tabh, tabq, *blen, *smax, scramble, nkeys, form))
     {
@@ -933,8 +928,6 @@ void findhash(
     *salt = trysalt;
     break;
   }
-
-  printf("built perfect hash table of size %ld\n", *blen);
 
   /* free working memory */
   free((void *)tabq);
@@ -1145,7 +1138,6 @@ hashform *form;                                           /* user directives */
 
   /* read in the list of keywords */
   getkeys(&keys, &nkeys, textroot, keyroot, form);
-  printf("Read in %ld keys\n",nkeys);
 
   /* find the hash */
   findhash(&tab, &alen, &blen, &salt, &final, 
@@ -1153,13 +1145,11 @@ hashform *form;                                           /* user directives */
 
   /* generate the phash.c file */
   make_c(tab, smax, blen, scramble, &final, form);
-  printf("Wrote phash.c\n");
 
   /* clean up memory sources */
   refree(textroot);
   refree(keyroot);
   free((void *)tab);
-  printf("Cleaned up\n");
 }
 
 

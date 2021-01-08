@@ -25,7 +25,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <util.h>
-/*@unused@*/ RCSID("$Id: x86bc.c 2130 2008-10-07 05:38:11Z peter $");
 
 #include <libyasm.h>
 
@@ -44,6 +43,7 @@ static int x86_bc_insn_expand(yasm_bytecode *bc, int span, long old_val,
                               long new_val, /*@out@*/ long *neg_thres,
                               /*@out@*/ long *pos_thres);
 static int x86_bc_insn_tobytes(yasm_bytecode *bc, unsigned char **bufp,
+                               unsigned char *bufstart,
                                void *d, yasm_output_value_func output_value,
                                /*@null@*/ yasm_output_reloc_func output_reloc);
 
@@ -56,6 +56,7 @@ static int x86_bc_jmp_expand(yasm_bytecode *bc, int span, long old_val,
                              long new_val, /*@out@*/ long *neg_thres,
                              /*@out@*/ long *pos_thres);
 static int x86_bc_jmp_tobytes(yasm_bytecode *bc, unsigned char **bufp,
+                              unsigned char *bufstart,
                               void *d, yasm_output_value_func output_value,
                               /*@null@*/ yasm_output_reloc_func output_reloc);
 
@@ -66,7 +67,7 @@ static int x86_bc_jmpfar_calc_len(yasm_bytecode *bc,
                                   yasm_bc_add_span_func add_span,
                                   void *add_span_data);
 static int x86_bc_jmpfar_tobytes
-    (yasm_bytecode *bc, unsigned char **bufp, void *d,
+    (yasm_bytecode *bc, unsigned char **bufp, unsigned char *bufstart, void *d,
      yasm_output_value_func output_value,
      /*@null@*/ yasm_output_reloc_func output_reloc);
 
@@ -106,9 +107,9 @@ static const yasm_bytecode_callback x86_bc_callback_jmpfar = {
 };
 
 int
-yasm_x86__set_rex_from_reg(unsigned char *rex, unsigned char *drex,
-                           unsigned char *low3, uintptr_t reg,
-                           unsigned int bits, x86_rex_bit_pos rexbit)
+yasm_x86__set_rex_from_reg(unsigned char *rex, unsigned char *low3,
+                           uintptr_t reg, unsigned int bits,
+                           x86_rex_bit_pos rexbit)
 {
     *low3 = (unsigned char)(reg&7);
 
@@ -116,17 +117,13 @@ yasm_x86__set_rex_from_reg(unsigned char *rex, unsigned char *drex,
         x86_expritem_reg_size size = (x86_expritem_reg_size)(reg & ~0xFUL);
 
         if (size == X86_REG8X || (reg & 0xF) >= 8) {
-            if (drex) {
-                *drex |= ((reg & 8) >> 3) << rexbit;
-            } else {
-                /* Check to make sure we can set it */
-                if (*rex == 0xff) {
-                    yasm_error_set(YASM_ERROR_TYPE,
-                        N_("cannot use A/B/C/DH with instruction needing REX"));
-                    return 1;
-                }
-                *rex |= 0x40 | (((reg & 8) >> 3) << rexbit);
+            /* Check to make sure we can set it */
+            if (*rex == 0xff) {
+                yasm_error_set(YASM_ERROR_TYPE,
+                    N_("cannot use A/B/C/DH with instruction needing REX"));
+                return 1;
             }
+            *rex |= 0x40 | (((reg & 8) >> 3) << rexbit);
         } else if (size == X86_REG8 && (reg & 7) >= 4) {
             /* AH/BH/CH/DH, so no REX allowed */
             if (*rex != 0 && *rex != 0xff) {
@@ -160,16 +157,14 @@ yasm_x86__bc_transform_jmpfar(yasm_bytecode *bc, x86_jmpfar *jmpfar)
 }
 
 void
-yasm_x86__ea_init(x86_effaddr *x86_ea, unsigned int spare, unsigned int drex,
-                  unsigned int need_drex, yasm_bytecode *precbc)
+yasm_x86__ea_init(x86_effaddr *x86_ea, unsigned int spare,
+                  yasm_bytecode *precbc)
 {
     if (yasm_value_finalize(&x86_ea->ea.disp, precbc))
         yasm_error_set(YASM_ERROR_TOO_COMPLEX,
                        N_("effective address too complex"));
     x86_ea->modrm &= 0xC7;                  /* zero spare/reg bits */
     x86_ea->modrm |= (spare << 3) & 0x38;   /* plug in provided bits */
-    x86_ea->drex = (unsigned char)drex;
-    x86_ea->need_drex = (unsigned char)need_drex;
 }
 
 void
@@ -179,7 +174,6 @@ yasm_x86__ea_set_disponly(x86_effaddr *x86_ea)
     x86_ea->need_modrm = 0;
     x86_ea->valid_sib = 0;
     x86_ea->need_sib = 0;
-    x86_ea->need_drex = 0;
 }
 
 static x86_effaddr *
@@ -196,26 +190,24 @@ ea_create(void)
     x86_ea->ea.pc_rel = 0;
     x86_ea->ea.not_pc_rel = 0;
     x86_ea->ea.data_len = 0;
+    x86_ea->vsib_mode = 0;
     x86_ea->modrm = 0;
     x86_ea->valid_modrm = 0;
     x86_ea->need_modrm = 0;
     x86_ea->sib = 0;
     x86_ea->valid_sib = 0;
     x86_ea->need_sib = 0;
-    x86_ea->drex = 0;
-    x86_ea->need_drex = 0;
 
     return x86_ea;
 }
 
 x86_effaddr *
 yasm_x86__ea_create_reg(x86_effaddr *x86_ea, unsigned long reg,
-                        unsigned char *rex, unsigned char *drex,
-                        unsigned int bits)
+                        unsigned char *rex, unsigned int bits)
 {
     unsigned char rm;
 
-    if (yasm_x86__set_rex_from_reg(rex, drex, &rm, reg, bits, X86_REX_B))
+    if (yasm_x86__set_rex_from_reg(rex, &rm, reg, bits, X86_REX_B))
         return NULL;
 
     if (!x86_ea)
@@ -236,7 +228,7 @@ yasm_x86__ea_create_expr(yasm_arch *arch, yasm_expr *e)
     x86_ea = ea_create();
 
     if (arch_x86->parser == X86_PARSER_GAS) {
-        /* Need to change foo+rip into foo wrt rip.
+        /* Need to change foo+rip into foo wrt rip (even in .intel_syntax mode).
          * Note this assumes a particular ordering coming from the parser
          * to work (it's not very smart)!
          */
@@ -287,6 +279,24 @@ yasm_x86__bc_apply_prefixes(x86_common *common, unsigned char *rex,
 
     for (i=0; i<num_prefixes; i++) {
         switch ((x86_parse_insn_prefix)(prefixes[i] & 0xff00)) {
+            /*To be accurate, we should enforce that TSX hints come only with a
+            predefined set of instructions, and in most cases only with F0
+            prefix. Otherwise they will have completely different semantics.
+            But F0 prefix can come only with a predefined set of instructions
+            too. And if it comes with other instructions, CPU will #UD.
+            Hence, F0-applicability should be enforced too. But it's not
+            currently. Maybe it is the decision made, that user should know
+            himself what he is doing with LOCK prefix. In this case, we should
+            not enforce TSX hints applicability too. And let user take care of
+            correct usage of TSX hints.
+            That is what we are going to do.*/
+            case X86_ACQREL:
+                if (common->acqrel_pre != 0)
+                    yasm_warn_set(YASM_WARN_GENERAL,
+                        N_("multiple XACQUIRE/XRELEASE prefixes, "
+                        "using leftmost"));
+                common->acqrel_pre = (unsigned char)prefixes[i] & 0xff;
+                break;
             case X86_LOCKREP:
                 if (common->lockrep_pre != 0)
                     yasm_warn_set(YASM_WARN_GENERAL,
@@ -390,6 +400,8 @@ yasm_x86__ea_print(const yasm_effaddr *ea, FILE *f, int indent_level)
     fprintf(f, "%*sNoSplit=%u\n", indent_level, "", (unsigned int)ea->nosplit);
     fprintf(f, "%*sSegmentOv=%02x\n", indent_level, "",
             (unsigned int)x86_ea->ea.segreg);
+    fprintf(f, "%*sVSIBMode=%u\n", indent_level, "",
+            (unsigned int)x86_ea->vsib_mode);
     fprintf(f, "%*sModRM=%03o ValidRM=%u NeedRM=%u\n", indent_level, "",
             (unsigned int)x86_ea->modrm, (unsigned int)x86_ea->valid_modrm,
             (unsigned int)x86_ea->need_modrm);
@@ -401,11 +413,13 @@ yasm_x86__ea_print(const yasm_effaddr *ea, FILE *f, int indent_level)
 static void
 x86_common_print(const x86_common *common, FILE *f, int indent_level)
 {
-    fprintf(f, "%*sAddrSize=%u OperSize=%u LockRepPre=%02x BITS=%u\n",
+    fprintf(f, "%*sAddrSize=%u OperSize=%u LockRepPre=%02x "
+        "ACQREL_Pre=%02x BITS=%u\n",
             indent_level, "",
             (unsigned int)common->addrsize,
             (unsigned int)common->opersize,
             (unsigned int)common->lockrep_pre,
+            (unsigned int)common->acqrel_pre,
             (unsigned int)common->mode_bits);
 }
 
@@ -521,6 +535,9 @@ x86_common_calc_len(const x86_common *common)
         len++;
     if (common->lockrep_pre != 0)
         len++;
+    if (common->acqrel_pre != 0)
+        len++;
+
 
     return len;
 }
@@ -560,7 +577,6 @@ x86_bc_insn_calc_len(yasm_bytecode *bc, yasm_bc_add_span_func add_span,
 
         /* Compute length of ea and add to total */
         bc->len += x86_ea->need_modrm + (x86_ea->need_sib ? 1:0);
-        bc->len += x86_ea->need_drex ? 1:0;
         bc->len += (x86_ea->ea.segreg != 0) ? 1 : 0;
     }
 
@@ -603,10 +619,10 @@ x86_bc_insn_calc_len(yasm_bytecode *bc, yasm_bc_add_span_func add_span,
         bc->len += immlen/8;
     }
 
-    /* VEX prefixes never have REX.  We can come into this function with the
-     * three byte form, so we need to see if we can optimize to the two byte
-     * form.  We can't do it earlier, as we don't know all of the REX byte
-     * until now.
+    /* VEX and XOP prefixes never have REX (it's embedded in the opcode).
+     * For VEX, we can come into this function with the three byte form,
+     * so we need to see if we can optimize to the two byte form.
+     * We can't do it earlier, as we don't know all of the REX byte until now.
      */
     if (insn->special_prefix == 0xC4) {
         /* See if we can shorten the VEX prefix to its two byte form.
@@ -623,7 +639,7 @@ x86_bc_insn_calc_len(yasm_bytecode *bc, yasm_bc_add_span_func add_span,
             insn->special_prefix = 0xC5;    /* mark as two-byte VEX */
         }
     } else if (insn->rex != 0xff && insn->rex != 0 &&
-               insn->special_prefix != 0xC5)
+               insn->special_prefix != 0xC5 && insn->special_prefix != 0x8F)
         bc->len++;
 
     bc->len += insn->opcode.len;
@@ -798,6 +814,9 @@ x86_common_tobytes(const x86_common *common, unsigned char **bufp,
         ((common->mode_bits != 64 && common->opersize != common->mode_bits) ||
          (common->mode_bits == 64 && common->opersize == 16)))
         YASM_WRITE_8(*bufp, 0x66);
+    /*TSX hints come before lock prefix*/
+    if (common->acqrel_pre != 0)
+        YASM_WRITE_8(*bufp, common->acqrel_pre);
     if (common->lockrep_pre != 0)
         YASM_WRITE_8(*bufp, common->lockrep_pre);
 }
@@ -811,22 +830,22 @@ x86_opcode_tobytes(const x86_opcode *opcode, unsigned char **bufp)
 }
 
 static int
-x86_bc_insn_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
+x86_bc_insn_tobytes(yasm_bytecode *bc, unsigned char **bufp,
+                    unsigned char *bufstart, void *d,
                     yasm_output_value_func output_value,
                     /*@unused@*/ yasm_output_reloc_func output_reloc)
 {
     x86_insn *insn = (x86_insn *)bc->contents;
     /*@null@*/ x86_effaddr *x86_ea = (x86_effaddr *)insn->x86_ea;
     yasm_value *imm = insn->imm;
-    unsigned char *bufp_orig = *bufp;
 
     /* Prefixes */
     x86_common_tobytes(&insn->common, bufp,
                        x86_ea ? (unsigned int)(x86_ea->ea.segreg>>8) : 0);
     if (insn->special_prefix != 0)
         YASM_WRITE_8(*bufp, insn->special_prefix);
-    if (insn->special_prefix == 0xC4) {
-        /* 3-byte VEX; merge in 1s complement of REX.R, REX.X, REX.B */
+    if (insn->special_prefix == 0xC4 || insn->special_prefix == 0x8F) {
+        /* 3-byte VEX/XOP; merge in 1s complement of REX.R, REX.X, REX.B */
         insn->opcode.opcode[0] &= 0x1F;
         if (insn->rex != 0xff)
             insn->opcode.opcode[0] |= ((~insn->rex) & 0x07) << 5;
@@ -868,9 +887,6 @@ x86_bc_insn_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
             YASM_WRITE_8(*bufp, x86_ea->sib);
         }
 
-        if (x86_ea->need_drex)
-            YASM_WRITE_8(*bufp, x86_ea->drex);
-
         if (x86_ea->ea.need_disp) {
             unsigned int disp_len = x86_ea->ea.disp.size/8;
 
@@ -888,7 +904,7 @@ x86_bc_insn_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
                                          yasm_expr_int(delta), bc->line);
             }
             if (output_value(&x86_ea->ea.disp, *bufp, disp_len,
-                             (unsigned long)(*bufp-bufp_orig), bc, 1, d))
+                             (unsigned long)(*bufp-bufstart), bc, 1, d))
                 return 1;
             *bufp += disp_len;
         }
@@ -906,7 +922,7 @@ x86_bc_insn_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
             imm_len = 1;
         } else
             imm_len = imm->size/8;
-        if (output_value(imm, *bufp, imm_len, (unsigned long)(*bufp-bufp_orig),
+        if (output_value(imm, *bufp, imm_len, (unsigned long)(*bufp-bufstart),
                          bc, 1, d))
             return 1;
         *bufp += imm_len;
@@ -916,14 +932,14 @@ x86_bc_insn_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
 }
 
 static int
-x86_bc_jmp_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
+x86_bc_jmp_tobytes(yasm_bytecode *bc, unsigned char **bufp,
+                   unsigned char *bufstart, void *d,
                    yasm_output_value_func output_value,
                    /*@unused@*/ yasm_output_reloc_func output_reloc)
 {
     x86_jmp *jmp = (x86_jmp *)bc->contents;
     unsigned char opersize;
     unsigned int i;
-    unsigned char *bufp_orig = *bufp;
     /*@only@*/ yasm_intnum *delta;
 
     /* Prefixes */
@@ -958,7 +974,7 @@ x86_bc_jmp_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
             jmp->target.size = 8;
             jmp->target.sign = 1;
             if (output_value(&jmp->target, *bufp, 1,
-                             (unsigned long)(*bufp-bufp_orig), bc, 1, d))
+                             (unsigned long)(*bufp-bufstart), bc, 1, d))
                 return 1;
             *bufp += 1;
             break;
@@ -990,7 +1006,7 @@ x86_bc_jmp_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
             jmp->target.size = i*8;
             jmp->target.sign = 1;
             if (output_value(&jmp->target, *bufp, i,
-                             (unsigned long)(*bufp-bufp_orig), bc, 1, d))
+                             (unsigned long)(*bufp-bufstart), bc, 1, d))
                 return 1;
             *bufp += i;
             break;
@@ -1003,13 +1019,13 @@ x86_bc_jmp_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
 }
 
 static int
-x86_bc_jmpfar_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
+x86_bc_jmpfar_tobytes(yasm_bytecode *bc, unsigned char **bufp,
+                      unsigned char *bufstart, void *d,
                       yasm_output_value_func output_value,
                       /*@unused@*/ yasm_output_reloc_func output_reloc)
 {
     x86_jmpfar *jmpfar = (x86_jmpfar *)bc->contents;
     unsigned int i;
-    unsigned char *bufp_orig = *bufp;
     unsigned char opersize;
 
     x86_common_tobytes(&jmpfar->common, bufp, 0);
@@ -1023,12 +1039,12 @@ x86_bc_jmpfar_tobytes(yasm_bytecode *bc, unsigned char **bufp, void *d,
     i = (opersize == 16) ? 2 : 4;
     jmpfar->offset.size = i*8;
     if (output_value(&jmpfar->offset, *bufp, i,
-                     (unsigned long)(*bufp-bufp_orig), bc, 1, d))
+                     (unsigned long)(*bufp-bufstart), bc, 1, d))
         return 1;
     *bufp += i;
     jmpfar->segment.size = 16;
     if (output_value(&jmpfar->segment, *bufp, 2,
-                     (unsigned long)(*bufp-bufp_orig), bc, 1, d))
+                     (unsigned long)(*bufp-bufstart), bc, 1, d))
         return 1;
     *bufp += 2;
 

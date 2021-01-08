@@ -25,7 +25,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "util.h"
-/*@unused@*/ RCSID("$Id: assocdat.c 1893 2007-07-14 03:11:32Z peter $");
 
 #include "coretype.h"
 #include "assocdat.h"
@@ -88,8 +87,10 @@ yasm__assoc_data_add(yasm__assoc_data *assoc_data_arg,
 
     /* See if there's already assocated data for this callback */
     for (i=0; i<assoc_data->size; i++) {
-        if (assoc_data->vector[i].callback == callback)
+        if (assoc_data->vector[i].callback == callback) {
             item = &assoc_data->vector[i];
+            break;
+        }
     }
 
     /* No?  Then append a new one */

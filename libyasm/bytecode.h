@@ -2,10 +2,6 @@
  * \file libyasm/bytecode.h
  * \brief YASM bytecode interface.
  *
- * \rcs
- * $Id: bytecode.h 2130 2008-10-07 05:38:11Z peter $
- * \endrcs
- *
  * \license
  *  Copyright (C) 2001-2007  Peter Johnson
  *
@@ -147,6 +143,8 @@ typedef struct yasm_bytecode_callback {
      *                      passed-in buf matches the bytecode length
      *                      (it's okay not to do this if an error
      *                      indication is returned)
+     * \param bufstart      For calculating the correct offset parameter for
+     *                      the \a output_value calls: *bufp - bufstart.
      * \param d             data to pass to each call to
      *                      output_value/output_reloc
      * \param output_value  function to call to convert values into their byte
@@ -158,7 +156,8 @@ typedef struct yasm_bytecode_callback {
      *       preferable if calling this function twice would result in the
      *       same output.
      */
-    int (*tobytes) (yasm_bytecode *bc, unsigned char **bufp, void *d,
+    int (*tobytes) (yasm_bytecode *bc, unsigned char **bufp,
+                    unsigned char *bufstart, void *d,
                     yasm_output_value_func output_value,
                     /*@null@*/ yasm_output_reloc_func output_reloc);
 
@@ -277,7 +276,7 @@ int yasm_bc_expand_common
  */
 YASM_LIB_DECL
 int yasm_bc_tobytes_common
-    (yasm_bytecode *bc, unsigned char **bufp, void *d,
+    (yasm_bytecode *bc, unsigned char **bufp, unsigned char *bufstart, void *d,
      yasm_output_value_func output_value,
      /*@null@*/ yasm_output_reloc_func output_reloc);
 
@@ -554,6 +553,7 @@ yasm_dataval *yasm_dv_create_expr(/*@keep@*/ yasm_expr *expn);
  * \param len           length of string
  * \return Newly allocated data value.
  */
+YASM_LIB_DECL
 yasm_dataval *yasm_dv_create_string(/*@keep@*/ char *contents, size_t len);
 
 /** Create a new data value from raw bytes data.
@@ -568,6 +568,7 @@ yasm_dataval *yasm_dv_create_raw(/*@keep@*/ unsigned char *contents,
 /** Create a new uninitialized data value.
  * \return Newly allocated data value.
  */
+YASM_LIB_DECL
 yasm_dataval *yasm_dv_create_reserve(void);
 
 #ifndef YASM_DOXYGEN
@@ -575,12 +576,20 @@ yasm_dataval *yasm_dv_create_reserve(void);
                                                        (unsigned long)(l))
 #endif
 
+/** Get the underlying value of a data value.
+ * \param dv    data value
+ * \return Value, or null if non-value (e.g. string or raw).
+ */
+YASM_LIB_DECL
+yasm_value *yasm_dv_get_value(yasm_dataval *dv);
+
 /** Set multiple field of a data value.
  * A data value can be repeated a number of times when output.  This function
  * sets that multiple.
  * \param dv    data value
  * \param e     multiple (kept, do not free)
  */
+YASM_LIB_DECL
 void yasm_dv_set_multiple(yasm_dataval *dv, /*@keep@*/ yasm_expr *e);
 
 /** Get the data value multiple value as an unsigned long integer.
@@ -588,6 +597,7 @@ void yasm_dv_set_multiple(yasm_dataval *dv, /*@keep@*/ yasm_expr *e);
  * \param multiple      multiple value (output)
  * \return 1 on error (set with yasm_error_set), 0 on success.
  */
+YASM_LIB_DECL
 int yasm_dv_get_multiple(yasm_dataval *dv, /*@out@*/ unsigned long *multiple);
 
 /** Initialize a list of data values.
